@@ -47,23 +47,32 @@ export function useBonusTasks(program: BonusTaskProgram) {
     return () => { supabase.removeChannel(channel); };
   }, [load, program]);
 
-  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null }): Promise<string | null> => {
+  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null }): Promise<string | null> => {
     const { error } = await supabase.from('bonus_tasks').insert(payload);
-    if (error) return error.message;
+    if (error) {
+      console.error('[useBonusTasks] insert failed:', error.message, payload);
+      return error.message;
+    }
     await load();
     return null;
   };
 
   const update = async (id: string, payload: Partial<Omit<BonusTask, 'id' | 'created_at'>>): Promise<string | null> => {
     const { error } = await supabase.from('bonus_tasks').update(payload).eq('id', id);
-    if (error) return error.message;
+    if (error) {
+      console.error('[useBonusTasks] update failed:', error.message, id, payload);
+      return error.message;
+    }
     await load();
     return null;
   };
 
   const remove = async (id: string): Promise<string | null> => {
     const { error } = await supabase.from('bonus_tasks').delete().eq('id', id);
-    if (error) return error.message;
+    if (error) {
+      console.error('[useBonusTasks] delete failed:', error.message, id);
+      return error.message;
+    }
     await load();
     return null;
   };
