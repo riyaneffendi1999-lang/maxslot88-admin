@@ -24,33 +24,28 @@ export function useBonusTasks(program: BonusTaskProgram) {
   const [data, setData] = useState<BonusTask[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     const { data: rows } = await supabase
       .from('bonus_tasks')
       .select('*')
       .eq('program', program)
       .order('created_at', { ascending: false });
     setData((rows as BonusTask[]) ?? []);
-    if (!silent) setLoading(false);
+    setLoading(false);
   }, [program]);
 
   useEffect(() => {
-    load(false);
+    load();
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`bonus_tasks_${program}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_tasks', filter: `program=eq.${program}` }, () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => { load(true); }, 500);
+        load();
       })
       .subscribe();
 
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [load, program]);
 
   const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null; completed_at?: string | null }): Promise<string | null> => {
