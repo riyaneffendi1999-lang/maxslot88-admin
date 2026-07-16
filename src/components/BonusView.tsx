@@ -185,7 +185,7 @@ function LuckySpinView() {
 
   // Left table state
   const [ticketInput, setTicketInput] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [pendingPage, setPendingPage] = useState(1);
   const PENDING_PAGE_SIZE = 20;
 
@@ -202,26 +202,19 @@ function LuckySpinView() {
   // Pending tickets from DB (visible to all admins via realtime)
   const pending = data.filter((d) => d.status === 'pending');
 
-  // Auto-split pasted tickets: supports multi-line (one ticket per line) and long strings (10-char chunks)
+  // Auto-split pasted long ticket string into 10-char chunks
   const handleTicketChange = (raw: string) => {
-    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length > 1 || (lines.length === 1 && lines[0].replace(/\s+/g, '').length > 10)) {
-      const tickets: string[] = [];
-      for (const line of lines) {
-        const cleaned = line.replace(/\s+/g, '');
-        if (cleaned.length <= 10) {
-          tickets.push(cleaned);
-        } else {
-          for (let i = 0; i < cleaned.length; i += 10) tickets.push(cleaned.slice(i, i + 10));
-        }
-      }
-      tickets.forEach((ticket) => {
+    const cleaned = raw.replace(/\s+/g, '');
+    if (cleaned.length > 10) {
+      const chunks: string[] = [];
+      for (let i = 0; i < cleaned.length; i += 10) chunks.push(cleaned.slice(i, i + 10));
+      chunks.forEach((ticket) => {
         add({ program: 'lucky-spin', ticket, user_name: '', inject_bonus: 0, status: 'pending' });
       });
       setTicketInput('');
       inputRef.current?.focus();
     } else {
-      setTicketInput(lines[0]?.slice(0, 10) ?? '');
+      setTicketInput(cleaned.slice(0, 10));
     }
   };
 
@@ -306,19 +299,15 @@ function LuckySpinView() {
       <div className="bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex-1">Input Data</p>
-          <textarea
+          <input
             ref={inputRef}
+            type="text"
             value={ticketInput}
             onChange={(e) => handleTicketChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                addTicketRow();
-              }
-            }}
-            placeholder="Ketik/paste tiket (bisa multiple baris)..."
-            rows={1}
-            className={`bg-slate-100 dark:bg-white/5 border rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none transition-colors w-48 font-mono resize-y min-h-[32px] max-h-24 ${
+            onKeyDown={(e) => { if (e.key === 'Enter') addTicketRow(); }}
+            placeholder="Ketik/paste tiket..."
+            maxLength={10}
+            className={`bg-slate-100 dark:bg-white/5 border rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none transition-colors w-48 font-mono ${
               ticketInput.length === 10 ? 'border-emerald-500/50 focus:border-emerald-500' : ticketInput.length > 0 ? 'border-amber-500/50 focus:border-amber-500' : 'border-slate-200 dark:border-white/10 focus:border-blue-500/50'
             }`}
           />
