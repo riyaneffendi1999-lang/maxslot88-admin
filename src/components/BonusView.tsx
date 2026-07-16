@@ -152,7 +152,6 @@ const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemo
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              if (userName !== task.user_name) onCommit(task.id, 'user_name', userName);
               const parsed = parseFloat(bonusText.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
               onComplete({ ...task, user_name: userName, inject_bonus: parsed });
             }
@@ -232,12 +231,13 @@ function LuckySpinView() {
 
   const removePendingRow = (id: string) => remove(id);
 
-  // When Enter is pressed on inject_bonus field: mark as complete
+  // When Enter is pressed on inject_bonus field: save username + bonus + mark complete in one atomic update
   const handleBonusEnter = async (task: BonusTask) => {
     if (!task.user_name.trim()) return;
     const amount = task.inject_bonus > 0 ? task.inject_bonus : 0;
     const status: BonusTask['status'] = amount > 0 ? 'complete' : 'pending';
     await update(task.id, {
+      user_name: task.user_name.trim(),
       inject_bonus: amount,
       status,
       edited_at: new Date().toISOString(),
