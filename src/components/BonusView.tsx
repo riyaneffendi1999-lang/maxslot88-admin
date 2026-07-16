@@ -240,8 +240,7 @@ function LuckySpinView() {
     await update(task.id, {
       inject_bonus: amount,
       status,
-      edited_at: new Date().toISOString(),
-      edited_by: user?.email ?? 'admin',
+      completed_at: status === 'complete' ? new Date().toISOString() : null,
     });
   };
 
@@ -253,9 +252,11 @@ function LuckySpinView() {
   const saveEdit = async (t: BonusTask) => {
     setEditSaving(true);
     const amount = parseFloat(editValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+    const nextStatus: BonusTask['status'] = amount > 0 ? 'complete' : 'pending';
     await update(t.id, {
       inject_bonus: amount,
-      status: amount > 0 ? 'complete' : 'pending',
+      status: nextStatus,
+      completed_at: nextStatus === 'complete' ? (t.completed_at ?? new Date().toISOString()) : null,
       edited_at: new Date().toISOString(),
       edited_by: user?.email ?? 'admin',
     });
@@ -274,7 +275,7 @@ function LuckySpinView() {
   const { from, to } = useMemo(() => getPeriodRange(period), [period]);
   const completed = useMemo(() =>
     data.filter((d) => {
-      const dt = new Date(d.created_at);
+      const dt = new Date(d.completed_at ?? d.created_at);
       return d.status === 'complete' && dt >= from && dt <= to &&
         (d.user_name.toLowerCase().includes(search.toLowerCase()) || d.ticket.toLowerCase().includes(search.toLowerCase()));
     }),
@@ -410,7 +411,7 @@ function LuckySpinView() {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                 {paginated.map((t) => {
-                  const dt = new Date(t.created_at);
+                  const dt = new Date(t.completed_at ?? t.created_at);
                   const isEditing = editingId === t.id;
                   return (
                     <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
@@ -444,16 +445,16 @@ function LuckySpinView() {
                         </span>
                       </td>
                       <td className={tdCls}>
-                        {t.edited_at && (
-                          <p className="text-[10px] text-slate-400 dark:text-slate-600 whitespace-nowrap">
-                            Edit: {new Date(t.edited_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} oleh {t.edited_by}
-                          </p>
-                        )}
-                      </td>
-                      <td className={tdCls}>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => startEdit(t)} disabled={isEditing} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-40 transition-colors" title="Edit bonus"><Pencil size={12} /></button>
-                          <button onClick={() => setDeleting(t)} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Hapus data"><Trash2 size={12} /></button>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => startEdit(t)} disabled={isEditing} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-40 transition-colors" title="Edit bonus"><Pencil size={12} /></button>
+                            <button onClick={() => setDeleting(t)} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Hapus data"><Trash2 size={12} /></button>
+                          </div>
+                          {t.edited_at && (
+                            <p className="text-[10px] text-slate-400 dark:text-slate-600 whitespace-nowrap">
+                              Edit: {new Date(t.edited_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} oleh {t.edited_by}
+                            </p>
+                          )}
                         </div>
                       </td>
                     </tr>

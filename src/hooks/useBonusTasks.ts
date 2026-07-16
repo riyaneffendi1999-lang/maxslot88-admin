@@ -14,6 +14,7 @@ export interface BonusTask {
   prize: string;
   status: BonusTaskStatus;
   created_at: string;
+  completed_at: string | null;
   edited_at: string | null;
   edited_by: string | null;
   periode: string | null;
@@ -47,7 +48,7 @@ export function useBonusTasks(program: BonusTaskProgram) {
     return () => { supabase.removeChannel(channel); };
   }, [load, program]);
 
-  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null }): Promise<string | null> => {
+  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null; completed_at?: string | null }): Promise<string | null> => {
     const { error } = await supabase.from('bonus_tasks').insert(payload);
     if (error) {
       console.error('[useBonusTasks] insert failed:', error.message, payload);
