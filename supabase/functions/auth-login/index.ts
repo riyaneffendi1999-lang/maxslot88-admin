@@ -109,9 +109,6 @@ Deno.serve(async (req: Request) => {
     const sessionToken = generateSessionToken();
 
     // Reset failed_login_count and store session_token in user_metadata
-    const meta = adminUser?.user_metadata ?? {};
-    const displayUsername = (meta.username as string) ?? email.split("@")[0];
-
     if (adminUser) {
       await supabaseAdmin.auth.admin.updateUserById(adminUser.id, {
         user_metadata: {
@@ -121,14 +118,6 @@ Deno.serve(async (req: Request) => {
         },
       });
     }
-
-    // Log login activity for notifications
-    await supabaseAdmin.from("admin_activity_log").insert({
-      user_id: adminUser?.id ?? null,
-      username: displayUsername,
-      email,
-      action: "login",
-    });
 
     return jsonResponse({
       session: {

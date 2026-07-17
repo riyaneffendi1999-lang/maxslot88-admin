@@ -90,11 +90,6 @@ export interface Database {
       bonus_entries: { Row: BonusEntry; Insert: Omit<BonusEntry, 'id' | 'created_at'>; Update: Partial<Omit<BonusEntry, 'id' | 'created_at'>> };
       managed_users: { Row: ManagedUser; Insert: Omit<ManagedUser, 'id' | 'created_at'>; Update: Partial<Omit<ManagedUser, 'id' | 'created_at'>> };
       bank_accounts: { Row: BankAccount; Insert: Omit<BankAccount, 'id' | 'created_at'>; Update: Partial<Omit<BankAccount, 'id' | 'created_at'>> };
-      admin_activity_log: {
-        Row: { id: string; user_id: string | null; username: string; email: string; action: 'login' | 'logout'; created_at: string };
-        Insert: { user_id?: string | null; username?: string; email?: string; action: 'login' | 'logout' };
-        Update: Partial<{ user_id: string | null; username: string; email: string; action: 'login' | 'logout' }>;
-      };
     };
   };
 }

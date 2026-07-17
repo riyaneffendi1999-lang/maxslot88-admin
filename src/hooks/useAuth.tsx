@@ -174,12 +174,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     localStorage.removeItem(SESSION_TOKEN_KEY);
     try {
-      await fetch(`${BASE}/auth-logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      });
-    } catch { /* best-effort logging */ }
-    try {
       await supabase.auth.signOut();
     } catch {
       // Session may already be invalid (e.g. after password reset) — clear local state anyway
