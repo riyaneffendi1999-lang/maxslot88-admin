@@ -1,16 +1,89 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <title>Login - Animated Background</title>
+    <title>Admin Panel - MaxSlot88</title>
+    <style>
+      body { margin: 0; background: #0a0e1a; }
+      #root-loader {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #0a0e1a; z-index: 9999; gap: 1rem;
+      }
+      #root-loader .spinner {
+        width: 32px; height: 32px; border: 3px solid #1e293b; border-top-color: #3b82f6;
+        border-radius: 50%; animation: spin 0.8s linear infinite;
+      }
+      #root-loader .status { color: #64748b; font-family: system-ui; font-size: 0.75rem; }
+      #js-error-display {
+        display: none; position: fixed; inset: 0; background: #0a0e1a; color: #f1f5f9;
+        font-family: system-ui, sans-serif; padding: 2rem; z-index: 99999;
+        align-items: center; justify-content: center; text-align: center;
+      }
+      #js-error-display.visible { display: flex; flex-direction: column; }
+      #js-error-display h2 { color: #f87171; margin-bottom: 0.5rem; }
+      #js-error-display pre { background: #1e293b; color: #fbbf24; padding: 1rem; border-radius: 0.5rem; font-size: 0.7rem; max-width: 90vw; overflow: auto; text-align: left; margin-top: 1rem; max-height: 200px; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
+    <div id="root-loader">
+      <div class="spinner"></div>
+      <div class="status">Memuat aplikasi...</div>
+    </div>
+    <div id="js-error-display">
+      <h2>Gagal Memuat Aplikasi</h2>
+      <p style="color:#94a3b8;font-size:0.875rem;">Terjadi error saat memuat JavaScript.</p>
+      <pre id="js-error-msg"></pre>
+      <button onclick="location.reload()" style="margin-top:1.5rem;padding:0.6rem 1.5rem;background:#3b82f6;color:#fff;border:none;border-radius:0.5rem;cursor:pointer;">Refresh</button>
+    </div>
     <div id="root"></div>
+    <noscript>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0e1a;color:#94a3b8;font-family:system-ui;padding:2rem;text-align:center;">
+        <p>JavaScript harus diaktifkan untuk menggunakan aplikasi ini.</p>
+      </div>
+    </noscript>
+    <script>
+      // Global error handler to catch any JS crash
+      function showJsError(msg) {
+        var el = document.getElementById('js-error-display');
+        var msgEl = document.getElementById('js-error-msg');
+        var loader = document.getElementById('root-loader');
+        if (el && msgEl) {
+          msgEl.textContent = msg;
+          el.classList.add('visible');
+        }
+        if (loader) loader.style.display = 'none';
+      }
+      window.onerror = function(msg, src, line, col, err) {
+        showJsError((err && err.stack) || (msg + ' at ' + src + ':' + line));
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        showJsError('Unhandled Promise: ' + (e.reason && e.reason.stack || e.reason || 'Unknown'));
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove loader once React mounts
+      var observer = new MutationObserver(function() {
+        var root = document.getElementById('root');
+        if (root && root.children.length > 0) {
+          var loader = document.getElementById('root-loader');
+          if (loader) loader.remove();
+          observer.disconnect();
+        }
+      });
+      var rootEl = document.getElementById('root');
+      if (rootEl) observer.observe(rootEl, { childList: true });
+
+      // Timeout fallback: if nothing loads in 15s, show diagnostic
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        if (root && root.children.length === 0) {
+          showJsError('Timeout: Aplikasi tidak berhasil dimuat dalam 15 detik.\n\nKemungkinan penyebab:\n- JavaScript bundle gagal dimuat (cek DevTools Network tab)\n- Environment variables tidak tersedia\n- Koneksi ke Supabase gagal');
+        }
+      }, 15000);
+    </script>
   </body>
 </html>

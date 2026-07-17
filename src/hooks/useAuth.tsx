@@ -49,19 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     supabase.auth.getSession()
-      .then(({ data }: { data: { session: Session | null } }) => {
+      .then(({ data }) => {
         if (!mounted) return;
         setSession(data.session);
         setUser(data.session?.user ?? null);
         setLoading(false);
       })
-      .catch((err: unknown) => {
+      .catch((err) => {
         console.error('[Auth] getSession failed:', err);
         if (!mounted) return;
         setLoading(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, sess: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       if (!mounted) return;
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -173,12 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     localStorage.removeItem(SESSION_TOKEN_KEY);
-    try {
-      await fetch(`${BASE}/auth-logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      });
-    } catch { /* best-effort logging */ }
     try {
       await supabase.auth.signOut();
     } catch {

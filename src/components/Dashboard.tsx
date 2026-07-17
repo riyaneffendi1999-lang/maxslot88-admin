@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, Calendar, Star, Zap, Gift } from 'lucide-react';
 import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  LineChart, Line,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useTransactions } from '../hooks/useTransactions';
 import { useBonusSummary } from '../hooks/useBonusSummary';
-import { formatRupiah, STATUS_LABELS, STATUS_STYLES } from '../types';
+import { formatRupiah, METHOD_COLORS, STATUS_LABELS, STATUS_STYLES } from '../types';
 import type { Transaction } from '../types';
 
 const CHART_COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
@@ -280,55 +279,24 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Line chart — Transaksi 7 Hari Terakhir */}
+      {/* Area chart */}
       <div className="bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/5 rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-slate-800 dark:text-white font-semibold">Transaksi 7 Hari Terakhir</h2>
-            <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Jumlah transaksi per hari</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-xl px-3.5 py-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                <TrendingUp size={15} className="text-blue-500 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase tracking-wider font-medium">Total Transaksi</p>
-                <p className="text-slate-800 dark:text-white text-base font-bold leading-tight">{areaData.reduce((a, d) => a + d.Transaksi, 0)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-xl px-3.5 py-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                <TrendingUp size={15} className="text-emerald-500 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase tracking-wider font-medium">Total Deposit</p>
-                <p className="text-slate-800 dark:text-white text-base font-bold leading-tight whitespace-nowrap">{formatRupiah(areaData.reduce((a, d) => a + d.Total, 0))}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={areaData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <h2 className="text-slate-800 dark:text-white font-semibold mb-1">Transaksi 7 Hari Terakhir</h2>
+        <p className="text-slate-400 dark:text-slate-500 text-xs mb-5">Jumlah transaksi per hari</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={areaData}>
             <defs>
-              <linearGradient id="lineTx" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#3b82f6" />
-                <stop offset="100%" stopColor="#06b6d4" />
-              </linearGradient>
-              <linearGradient id="lineDep" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#10b981" />
-                <stop offset="100%" stopColor="#14b8a6" />
+              <linearGradient id="txGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" vertical={false} />
-            <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} dy={8} />
-            <YAxis yAxisId="left" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} width={48} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+            <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }} />
-            <Line yAxisId="left" type="monotone" dataKey="Transaksi" name="Transaksi" stroke="url(#lineTx)" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }} animationDuration={900} />
-            <Line yAxisId="right" type="monotone" dataKey="Total" name="Deposit" stroke="url(#lineDep)" strokeWidth={2.5} dot={{ fill: '#10b981', r: 3, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }} animationDuration={900} />
-          </LineChart>
+            <Area type="monotone" dataKey="Transaksi" stroke="#3b82f6" strokeWidth={2} fill="url(#txGrad)" dot={{ fill: '#3b82f6', r: 3 }} />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 

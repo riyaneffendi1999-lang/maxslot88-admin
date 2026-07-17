@@ -91,7 +91,7 @@ function parseDataLine(line: string): {
   if (tabParts.length >= 3) {
     // Format: [ticket, username, fullname, group] or [ticket, username, group]
     const { group_name, rest: joined } = extractGroup(tabParts.join(' '));
-    void joined.split(/\s{2,}|\t+/).map((s) => s.trim()).filter(Boolean);
+    const partsNoGroup = joined.split(/\s{2,}|\t+/).map((s) => s.trim()).filter(Boolean);
     
     // Re-extract from tab parts excluding group
     const cleanParts = tabParts.filter((p) => {

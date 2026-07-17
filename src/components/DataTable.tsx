@@ -60,7 +60,6 @@ const statusConfig: Record<TransactionStatus, { icon: React.ReactNode; class: st
   unik: { icon: <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />, class: STATUS_STYLES.unik },
   'pindah-dana': { icon: <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />, class: STATUS_STYLES['pindah-dana'] },
   'biaya-admin': { icon: <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />, class: STATUS_STYLES['biaya-admin'] },
-  'cuci-pulsa': { icon: <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />, class: STATUS_STYLES['cuci-pulsa'] },
 };
 
 function TablePagination({
@@ -134,8 +133,7 @@ export default function DataTable({ title, subtitle, methods, logo }: Props) {
   void subtitle;
   const { data, loading, refetch, add, update, remove, bulkAdd } = useTransactions(methods);
   const { data: bankAccounts } = useBankAccounts();
-  const _auth = useAuth();
-  void _auth;
+  const { username } = useAuth();
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedBankId, setSelectedBankId] = useState<string>('');
   const [period, setPeriod] = useState<Period>('today');

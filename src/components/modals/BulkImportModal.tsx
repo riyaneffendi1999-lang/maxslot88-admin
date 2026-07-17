@@ -11,7 +11,7 @@ interface Props {
   onImport: (rows: ParsedTransaction[], bankAccountId: string, status: string) => Promise<string | null>;
 }
 
-export default function BulkImportModal({ bankAccounts, onClose, onImport }: Props) {
+export default function BulkImportModal({ bankAccounts, method, onClose, onImport }: Props) {
   const [raw, setRaw] = useState('');
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id ?? '');
   const [status, setStatus] = useState('pending');
@@ -19,8 +19,7 @@ export default function BulkImportModal({ bankAccounts, onClose, onImport }: Pro
   const [error, setError] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseRawTransactions(raw), [raw]);
-  const _selectedBank = bankAccounts.find((b) => b.id === bankAccountId) ?? null;
-  void _selectedBank;
+  const selectedBank = bankAccounts.find((b) => b.id === bankAccountId) ?? null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

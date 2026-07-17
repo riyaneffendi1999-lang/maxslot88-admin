@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Bell, ChevronDown, LogOut, LogIn, Sun, Moon, Clock, KeyRound, Loader2, X, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, ChevronDown, LogOut, Sun, Moon, Clock, KeyRound, Loader2, X, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
-import { useAdminActivity, type AdminActivity } from '../hooks/useAdminActivity';
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_STYLES } from '../types';
 import type { AdminRole } from '../types';
 import logo from '../assets/logo.png';
@@ -27,44 +26,7 @@ export default function Topbar({ onToggleSidebar, userEmail, userId, username, r
   const [showUser, setShowUser] = useState(false);
   const [wibTime, setWibTime] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
-  const [toast, setToast] = useState<AdminActivity | null>(null);
-  const lastSeenIdRef = useRef<string | null>(null);
-  const { data: activities, loading: actLoading } = useAdminActivity(15);
-  const _initials = username ? username.slice(0, 2).toUpperCase() : userEmail ? userEmail.slice(0, 2).toUpperCase() : 'AD';
-  void _initials;
-
-  const unreadCount = useMemo(() => {
-    if (activities.length === 0) return 0;
-    const lastSeenId = lastSeenIdRef.current;
-    if (!lastSeenId) return Math.min(activities.length, 5);
-    const idx = activities.findIndex((a) => a.id === lastSeenId);
-    return idx === -1 ? activities.length : idx;
-  }, [activities]);
-
-  useEffect(() => {
-    if (activities.length > 0 && !lastSeenIdRef.current) {
-      lastSeenIdRef.current = activities[0].id;
-    }
-  }, [activities]);
-
-  // Show toast when a new activity arrives
-  useEffect(() => {
-    if (activities.length === 0) return;
-    const latest = activities[0];
-    if (lastSeenIdRef.current && latest.id !== lastSeenIdRef.current) {
-      setToast(latest);
-      const timer = setTimeout(() => setToast(null), 5000);
-      lastSeenIdRef.current = latest.id;
-      return () => clearTimeout(timer);
-    }
-  }, [activities]);
-
-  // Mark all as read when notification panel opens
-  useEffect(() => {
-    if (showNotif && activities.length > 0) {
-      lastSeenIdRef.current = activities[0].id;
-    }
-  }, [showNotif, activities]);
+  const initials = username ? username.slice(0, 2).toUpperCase() : userEmail ? userEmail.slice(0, 2).toUpperCase() : 'AD';
 
   useEffect(() => {
     const update = () => {
@@ -79,18 +41,6 @@ export default function Topbar({ onToggleSidebar, userEmail, userId, username, r
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, []);
-
-  const timeAgo = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return 'Baru saja';
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min} mnt lalu`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr} jam lalu`;
-    const day = Math.floor(hr / 24);
-    return `${day} hr lalu`;
-  };
 
   return (
     <>
@@ -107,87 +57,30 @@ export default function Topbar({ onToggleSidebar, userEmail, userId, username, r
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
-          {/* Notification bell */}
           <div className="relative">
-            <button onClick={() => { setShowNotif(!showNotif); setShowUser(false); }} className="relative p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" title="Notifikasi aktivitas admin">
+            <button onClick={() => { setShowNotif(!showNotif); setShowUser(false); }} className="relative p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
               <Bell size={17} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0a1628] animate-pulse">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-blue-500"></span>
             </button>
             {showNotif && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowNotif(false)} />
-                <div className="absolute right-0 top-10 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl shadow-black/10 dark:shadow-black/40 z-20 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/5">
-                    <p className="text-slate-800 dark:text-white text-sm font-semibold">Notifikasi Aktivitas</p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Admin</span>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {actLoading ? (
-                      <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-blue-500 dark:text-blue-400" /></div>
-                    ) : activities.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 gap-2 text-slate-400 dark:text-slate-600">
-                        <Bell size={24} className="opacity-40" />
-                        <p className="text-xs">Belum ada aktivitas</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-white/5">
-                        {activities.slice(0, 10).map((a) => {
-                          const isLogin = a.action === 'login';
-                          return (
-                            <div key={a.id} className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors ${a.id === activities[0].id && unreadCount > 0 ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''}`}>
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isLogin ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
-                                {isLogin ? <LogIn size={14} className="text-emerald-500 dark:text-emerald-400" /> : <LogOut size={14} className="text-amber-500 dark:text-amber-400" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-slate-800 dark:text-white leading-snug">
-                                  <span className="font-semibold">{a.username || a.email.split('@')[0]}</span>{' '}
-                                  <span className="text-slate-500 dark:text-slate-400">{isLogin ? 'telah login' : 'telah logout'}</span>
-                                </p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <Clock size={10} className="text-slate-400 dark:text-slate-600" />
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{timeAgo(a.created_at)}</span>
-                                </div>
-                              </div>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isLogin ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
-                                {isLogin ? 'Login' : 'Logout'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  {activities.length > 0 && (
-                    <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/5 text-center">
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">{activities.length} aktivitas tercatat</span>
+                <div className="absolute right-0 top-10 w-72 bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl shadow-black/10 dark:shadow-black/40 z-20 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-white/5"><p className="text-slate-800 dark:text-white text-sm font-semibold">Notifikasi</p></div>
+                  {[
+                    { text: '3 deposit pending perlu dikonfirmasi', time: '2 mnt lalu', dot: 'bg-amber-400' },
+                    { text: 'User baru mendaftar', time: '15 mnt lalu', dot: 'bg-blue-400' },
+                    { text: 'Transaksi OVO gagal', time: '1 jam lalu', dot: 'bg-red-400' },
+                  ].map((n, i) => (
+                    <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-b border-slate-200 dark:border-white/5 last:border-0">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.dot}`} />
+                      <div><p className="text-slate-600 dark:text-slate-300 text-xs">{n.text}</p><p className="text-slate-400 dark:text-slate-600 text-xs mt-0.5">{n.time}</p></div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </>
             )}
           </div>
-          {/* Toast popup for new activity */}
-          {toast && (
-            <div className="fixed top-20 right-4 z-50 w-72 bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl shadow-black/10 dark:shadow-black/40 p-3.5 cursor-pointer" onClick={() => setToast(null)}>
-              <div className="flex items-start gap-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${toast.action === 'login' ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
-                  {toast.action === 'login' ? <LogIn size={16} className="text-emerald-500 dark:text-emerald-400" /> : <LogOut size={16} className="text-amber-500 dark:text-amber-400" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-800 dark:text-white leading-snug">
-                    <span className="font-semibold">{toast.username || toast.email.split('@')[0]}</span>{' '}
-                    <span className="text-slate-500 dark:text-slate-400">{toast.action === 'login' ? 'telah login' : 'telah logout'}</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1"><Clock size={10} /> {timeAgo(toast.created_at)}</p>
-                </div>
-                <button className="text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300 shrink-0" onClick={(e) => { e.stopPropagation(); setToast(null); }}><X size={14} /></button>
-              </div>
-            </div>
-          )}
 
           <div className="relative">
             <button onClick={() => { setShowUser(!showUser); setShowNotif(false); }} className="flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-white/5">

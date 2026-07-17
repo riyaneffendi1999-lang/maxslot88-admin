@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, memo } from 'react';
 import { Search, Star, Calendar, TrendingUp, Zap, Plus, Trash2, Check, Loader2, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, CheckCircle2, Circle, Pencil, Users, Gift, Info, Clock, Package } from 'lucide-react';
 import { useBonusTasks } from '../hooks/useBonusTasks';
-import type { BonusTask } from '../hooks/useBonusTasks';
+import type { BonusTask, BonusTaskProgram } from '../hooks/useBonusTasks';
 import { ConfirmDialog } from './modals/ModalBase';
 import type { BonusProgram } from '../types';
 import { formatRupiah } from '../types';
@@ -95,7 +95,7 @@ function PeriodDropdown({ value, onChange }: { value: Period; onChange: (v: Peri
 
 // ─── Dual Table for Lucky Spin ─────────────────────────────────────────────────
 
-void 'text-left text-xs text-slate-500 dark:text-slate-500 font-medium px-3 py-2.5 uppercase tracking-wider whitespace-nowrap';
+const pendingThCls = 'text-left text-xs text-slate-500 dark:text-slate-500 font-medium px-3 py-2.5 uppercase tracking-wider whitespace-nowrap';
 const pendingTdCls = 'px-3 py-2.5';
 const pendingInCls = 'w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors';
 
@@ -209,7 +209,7 @@ function LuckySpinView() {
       const chunks: string[] = [];
       for (let i = 0; i < cleaned.length; i += 10) chunks.push(cleaned.slice(i, i + 10));
       chunks.forEach((ticket) => {
-        add({ program: 'lucky-spin', ticket, user_name: '', inject_bonus: 0, total_turnover: 0, prize: '', status: 'pending' });
+        add({ program: 'lucky-spin', ticket, user_name: '', inject_bonus: 0, status: 'pending' });
       });
       setTicketInput('');
       inputRef.current?.focus();
@@ -221,7 +221,7 @@ function LuckySpinView() {
   const addTicketRow = useCallback(() => {
     const ticket = ticketInput.trim();
     if (!ticket || ticket.length < 1 || ticket.length > 10) return;
-    add({ program: 'lucky-spin', ticket, user_name: '', inject_bonus: 0, total_turnover: 0, prize: '', status: 'pending' });
+    add({ program: 'lucky-spin', ticket, user_name: '', inject_bonus: 0, status: 'pending' });
     setTicketInput('');
     inputRef.current?.focus();
   }, [ticketInput, add]);
@@ -503,7 +503,7 @@ function KamisCeriaView() {
     }
 
     setSaving(true);
-    await add({ program: 'kamis-ceria', ticket: '', user_name: name, inject_bonus: FIXED_BONUS, total_turnover: 0, prize: '', status: 'complete' });
+    await add({ program: 'kamis-ceria', ticket: '', user_name: name, inject_bonus: FIXED_BONUS, status: 'complete' });
     setSaving(false);
     setUsername('');
     inputRef.current?.focus();
