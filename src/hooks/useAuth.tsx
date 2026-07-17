@@ -49,19 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     supabase.auth.getSession()
-      .then(({ data }) => {
+      .then(({ data }: { data: { session: Session | null } }) => {
         if (!mounted) return;
         setSession(data.session);
         setUser(data.session?.user ?? null);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[Auth] getSession failed:', err);
         if (!mounted) return;
         setLoading(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, sess: Session | null) => {
       if (!mounted) return;
       setSession(sess);
       setUser(sess?.user ?? null);

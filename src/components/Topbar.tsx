@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Bell, ChevronDown, LogOut, LogIn, Sun, Moon, Clock, KeyRound, Loader2, X, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
-import { useAdminActivity } from '../hooks/useAdminActivity';
+import { useAdminActivity, type AdminActivity } from '../hooks/useAdminActivity';
 import { ADMIN_ROLE_LABELS, ADMIN_ROLE_STYLES } from '../types';
 import type { AdminRole } from '../types';
 import logo from '../assets/logo.png';
@@ -30,7 +30,8 @@ export default function Topbar({ onToggleSidebar, userEmail, userId, username, r
   const [toast, setToast] = useState<AdminActivity | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
   const { data: activities, loading: actLoading } = useAdminActivity(15);
-  const initials = username ? username.slice(0, 2).toUpperCase() : userEmail ? userEmail.slice(0, 2).toUpperCase() : 'AD';
+  const _initials = username ? username.slice(0, 2).toUpperCase() : userEmail ? userEmail.slice(0, 2).toUpperCase() : 'AD';
+  void _initials;
 
   const unreadCount = useMemo(() => {
     if (activities.length === 0) return 0;

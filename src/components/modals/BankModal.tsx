@@ -51,6 +51,7 @@ export default function BankModal({ initial, onClose, onSave }: Props) {
       type: type as BankType,
       name: stillValid ? currentName : newOptions[0].name,
       code: stillValid ? p.code : newOptions[0].code,
+      status: p.status,
     }));
   };
 
@@ -103,7 +104,7 @@ export default function BankModal({ initial, onClose, onSave }: Props) {
           <input className={inputCls} value={form.holder_name} onChange={(e) => setForm((p) => ({ ...p, holder_name: e.target.value }))} placeholder="PT Admin Panel" required />
         </FormField>
         <FormField label="Status">
-          <select className={selectCls} value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
+          <select className={selectCls} value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as BankStatus }))}>
             <option value="active">Aktif</option>
             <option value="inactive">Nonaktif</option>
           </select>

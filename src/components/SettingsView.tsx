@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Loader2, KeyRound, Crown, Power } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, ShieldCheck, ShieldOff, Loader2, KeyRound, Crown } from 'lucide-react';
 import { useAdmins } from '../hooks/useAdmins';
 import type { AdminUser } from '../hooks/useAdmins';
 import { useAuth } from '../hooks/useAuth';
@@ -8,7 +8,6 @@ import AdminModal from './modals/AdminModal';
 import BankModal from './modals/BankModal';
 import { ConfirmDialog } from './modals/ModalBase';
 import { SIDEBAR_ACCESS_ITEMS, formatRupiah, ADMIN_ROLE_LABELS, ADMIN_ROLE_STYLES, ROLE_RANK } from '../types';
-import type { AdminRole } from '../types';
 import type { BankAccount } from '../types';
 
 const logoBCA = '/assets/deposit-logos/logo-bca.jpg';
@@ -200,7 +199,7 @@ function RoleAkses() {
                     {ADMIN_ROLE_LABELS[admin.role]}
                   </span>
                 </div>
-                {!canEdit && <KeyRound size={14} className="text-slate-400" title="Tidak bisa edit role lebih tinggi" />}
+                {!canEdit && <KeyRound size={14} className="text-slate-400" />}
               </div>
               <div className="flex flex-wrap gap-2">
                 {SIDEBAR_ACCESS_ITEMS.map((item) => {
@@ -338,7 +337,7 @@ function ManagementBank() {
 
       {modalOpen && (
         <BankModal
-          initial={editBank}
+          initial={editBank ?? undefined}
           onClose={() => setModalOpen(false)}
           onSave={async (payload) => {
             if (editBank) return await update(editBank.id, payload);

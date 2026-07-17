@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import type { AdminRole } from '../types';
 
 export type { AdminRole } from '../types';

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, Calendar, Star, Zap, Gift } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useTransactions } from '../hooks/useTransactions';
 import { useBonusSummary } from '../hooks/useBonusSummary';
-import { formatRupiah, METHOD_COLORS, STATUS_LABELS, STATUS_STYLES } from '../types';
+import { formatRupiah, STATUS_LABELS, STATUS_STYLES } from '../types';
 import type { Transaction } from '../types';
 
 const CHART_COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];

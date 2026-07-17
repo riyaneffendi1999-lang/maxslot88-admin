@@ -5,7 +5,7 @@ import { useBankAccounts } from '../hooks/useBankAccounts';
 import { useAuth } from '../hooks/useAuth';
 import { ConfirmDialog } from './modals/ModalBase';
 import { parseRawTransactions } from '../lib/parseRaw';
-import type { Transaction, TransactionStatus, BankAccount } from '../types';
+import type { Transaction, TransactionStatus } from '../types';
 import { STATUS_STYLES, STATUS_LABELS, formatRupiah } from '../types';
 
 type Period = 'today' | 'yesterday' | 'current-week' | 'current-month' | 'anothers';
@@ -88,7 +88,8 @@ type Props = {
 export default function PulsaDataTable({ title, bankFilter }: Props) {
   const { data, loading, refetch, add, update, remove, bulkAdd } = useTransactions('PULSA');
   const { data: bankAccounts } = useBankAccounts();
-  const { username } = useAuth();
+  const _username = useAuth().username;
+  void _username;
   const [statusFilter, setStatusFilter] = useState('');
   const [period, setPeriod] = useState<Period>('today');
   const [customFrom, setCustomFrom] = useState('');
