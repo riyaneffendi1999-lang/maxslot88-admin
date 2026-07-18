@@ -210,11 +210,6 @@ function LuckySpinView() {
   const [pendingPage, setPendingPage] = useState(1);
   const PENDING_PAGE_SIZE = 20;
 
-  // Optimistic layer: rows that have been committed to Supabase but whose
-  // realtime echo hasn't arrived yet. Keyed by task id -> the optimistic patch.
-  const [optimisticPatches, setOptimisticPatches] = useState<Record<string, Partial<BonusTask>>>({});
-  // Rows currently animating fade-out (kept mounted for the 250ms animation).
-  const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
   // Lock set: task ids whose save is in-flight. Prevents double-submit on
   // repeated ENTER.
   const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
@@ -236,34 +231,11 @@ function LuckySpinView() {
   }, []);
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-  // Merge optimistic patches into the raw data from the hook.
-  const merged = useMemo(() => data.map((d) => {
-    const p = optimisticPatches[d.id];
-    return p ? { ...d, ...p } : d;
-  }), [data, optimisticPatches]);
-
-  const pending = useMemo(() => merged.filter((d) => d.status === 'pending'), [merged]);
+  // `data` is the single source of truth — the hook patches it directly with
+  // the canonical Supabase row after each successful write, so the row
+  // genuinely moves from pending to complete without any optimistic overlay.
+  const pending = useMemo(() => data.filter((d) => d.status === 'pending'), [data]);
   const pendingIds = useMemo(() => pending.map((p) => p.id), [pending]);
-
-  // Drop optimistic patches once the canonical row from Supabase catches up
-  // (realtime echo). The patch's terminal status matching `data` means the
-  // server-confirmed row is now rendered and the overlay is no longer needed.
-  useEffect(() => {
-    if (Object.keys(optimisticPatches).length === 0) return;
-    setOptimisticPatches((m) => {
-      let changed = false;
-      const n = { ...m };
-      for (const id of Object.keys(n)) {
-        const row = data.find((d) => d.id === id);
-        const patched = n[id];
-        if (row && patched && row.status === patched.status) {
-          delete n[id];
-          changed = true;
-        }
-      }
-      return changed ? n : m;
-    });
-  }, [data, optimisticPatches]);
 
   // Right table state
   const [search, setSearch] = useState('');
@@ -298,8 +270,10 @@ function LuckySpinView() {
     inputRef.current?.focus();
   }, [ticketInput, add]);
 
-  const updatePendingRow = (id: string, field: 'user_name' | 'inject_bonus', value: string) =>
-    update(id, { [field]: field === 'inject_bonus' ? parseRupiahInput(value) : value });
+  const updatePendingRow = async (id: string, field: 'user_name' | 'inject_bonus', value: string) => {
+    const { error } = await update(id, { [field]: field === 'inject_bonus' ? parseRupiahInput(value) : value });
+    if (error) showToast('error', 'Gagal menyimpan perubahan');
+  }
 
   const removePendingRow = (id: string) => remove(id);
 
@@ -317,7 +291,11 @@ function LuckySpinView() {
     }
   }, [pendingIds]);
 
-  // Core ENTER workflow: validate -> optimistic update + fade -> persist.
+  // Core ENTER workflow: validate -> persist to Supabase -> local cache updated
+  // with the canonical row -> row genuinely moves from pending to complete.
+  // No optimistic overlay: the hook's `update()` writes to Supabase AND patches
+  // the local `data` array with the server-confirmed row, so the right table
+  // renders real data, not a placeholder.
   const handleBonusEnter = async (task: BonusTask, inputEl: HTMLInputElement) => {
     // Lock guard: ignore repeated ENTER while a save for this id is in-flight.
     if (lockedIds.has(task.id)) return;
@@ -334,64 +312,36 @@ function LuckySpinView() {
       return;
     }
 
+    // 1. Lock this row's input so repeated ENTER can't create duplicate writes.
+    setLockedIds((s) => new Set(s).add(task.id));
+
+    // 2. Persist to Supabase. The hook updates the local cache with the
+    //    canonical returned row, so `data` now contains status='complete' —
+    //    the row is genuinely gone from `pending` and present in `completed`.
     const nowIso = new Date().toISOString();
-    const patch: Partial<BonusTask> = {
+    const { error } = await update(task.id, {
       user_name: task.user_name.trim(),
       inject_bonus: amount,
       status: 'complete',
       completed_at: nowIso,
       completed_by: adminName,
-    };
-
-    // 1. Lock this row's input.
-    setLockedIds((s) => new Set(s).add(task.id));
-    // 2. Optimistically apply the patch (moves row out of `pending`).
-    setOptimisticPatches((m) => ({ ...m, [task.id]: patch }));
-    // 3. Start fade-out animation on the row (kept mounted for 250ms).
-    setFadingIds((s) => new Set(s).add(task.id));
-
-    // 4. Persist to Supabase.
-    const err = await update(task.id, {
-      user_name: patch.user_name!,
-      inject_bonus: amount,
-      status: 'complete',
-      completed_at: nowIso,
-      completed_by: adminName,
     });
 
-    // 5a. Success — remove the fading row after the 250ms animation, unlock,
-    // show toast, and focus the next pending row's bonus input. The optimistic
-    // patch is intentionally KEPT until the realtime echo arrives with the
-    // canonical `complete` row; a cleanup effect drops it once `data` catches
-    // up. Clearing it eagerly here would revert the row to the stale local
-    // cache (still `pending`) and cause a flicker back into the left table.
-    if (!err) {
-      setTimeout(() => {
-        setFadingIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
-      }, 250);
-      setLockedIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
-      showToast('success', 'Bonus berhasil diinject');
-      focusNextPending(task.id);
+    // 3. Unlock regardless of outcome.
+    setLockedIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
+
+    if (error) {
+      // Failure: the local cache was NOT mutated (hook only patches on
+      // success), so the row is still in `pending` — no rollback needed.
+      showToast('error', 'Gagal menyimpan data, silakan coba kembali');
+      requestAnimationFrame(() => inputEl.focus());
       return;
     }
 
-    // 5b. Failure — rollback: restore pending status, clear patch, unlock,
-    // show error toast, keep the row in the left table.
-    setFadingIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
-    setOptimisticPatches((m) => {
-      const n = { ...m };
-      // Reset to pending so the row is visible again in the left table.
-      n[task.id] = { status: 'pending', inject_bonus: 0, completed_at: null, completed_by: null };
-      // Clear the rollback marker after a tick so the canonical DB value
-      // (still pending) shows through once realtime arrives.
-      setTimeout(() => {
-        setOptimisticPatches((m2) => { const n2 = { ...m2 }; delete n2[task.id]; return n2; });
-      }, 0);
-      return n;
-    });
-    setLockedIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
-    showToast('error', 'Gagal menyimpan data, silakan coba kembali');
-    requestAnimationFrame(() => inputEl.focus());
+    // 4. Success: row has moved to the right table (real data). Toast + focus
+    //    the next pending row so the operator can keep typing without a mouse.
+    showToast('success', 'Bonus berhasil diinject');
+    focusNextPending(task.id);
   };
 
   const startEdit = (t: BonusTask) => {
@@ -403,7 +353,7 @@ function LuckySpinView() {
     setEditSaving(true);
     const amount = parseRupiahInput(editValue);
     const nextStatus: BonusTask['status'] = amount > 0 ? 'complete' : 'pending';
-    await update(t.id, {
+    const { error } = await update(t.id, {
       inject_bonus: amount,
       status: nextStatus,
       completed_at: nextStatus === 'complete' ? (t.completed_at ?? new Date().toISOString()) : null,
@@ -411,6 +361,7 @@ function LuckySpinView() {
       edited_by: adminName,
     });
     setEditSaving(false);
+    if (error) { showToast('error', 'Gagal menyimpan perubahan'); return; }
     setEditingId(null);
   };
 
@@ -424,12 +375,12 @@ function LuckySpinView() {
 
   const { from, to } = useMemo(() => getPeriodRange(period), [period]);
   const completed = useMemo(() =>
-    merged.filter((d) => {
+    data.filter((d) => {
       const dt = new Date(d.completed_at ?? d.created_at);
       return d.status === 'complete' && dt >= from && dt <= to &&
         (d.user_name.toLowerCase().includes(search.toLowerCase()) || d.ticket.toLowerCase().includes(search.toLowerCase()));
     }),
-    [merged, from, to, search]
+    [data, from, to, search]
   );
 
   const totalPages = Math.max(1, Math.ceil(completed.length / BONUS_PAGE_SIZE));
@@ -496,38 +447,17 @@ function LuckySpinView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-              {pending.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE).map((r) => {
-                const isFading = fadingIds.has(r.id);
-                const isLocked = lockedIds.has(r.id);
-                if (isFading) {
-                  // Render a detached, animated copy so the row visually slides
-                  // out without affecting table layout mid-animation.
-                  return (
-                    <tr key={r.id} className="ls-row-fade-out">
-                      <td className={pendingTdCls}><span className="text-xs text-slate-800 dark:text-white">{r.user_name}</span></td>
-                      <td className={pendingTdCls}><span className="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{r.ticket || '—'}</span></td>
-                      <td className={pendingTdCls}><span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatRupiah(r.inject_bonus)}</span></td>
-                      <td className={pendingTdCls}>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                          <CheckCircle2 size={11} />Complete
-                        </span>
-                      </td>
-                      <td className={pendingTdCls}><Loader2 size={12} className="animate-spin text-blue-500 dark:text-blue-400" /></td>
-                    </tr>
-                  );
-                }
-                return (
-                  <PendingRow
-                    key={r.id}
-                    task={r}
-                    registerInput={registerInput}
-                    onCommit={updatePendingRow}
-                    onComplete={handleBonusEnter}
-                    onRemove={removePendingRow}
-                    locked={isLocked}
-                  />
-                );
-              })}
+              {pending.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE).map((r) => (
+                <PendingRow
+                  key={r.id}
+                  task={r}
+                  registerInput={registerInput}
+                  onCommit={updatePendingRow}
+                  onComplete={handleBonusEnter}
+                  onRemove={removePendingRow}
+                  locked={lockedIds.has(r.id)}
+                />
+              ))}
               {pending.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-400 dark:text-slate-600 text-xs">Masukkan tiket di atas lalu tekan Enter untuk menambah baris</td></tr>
               )}
