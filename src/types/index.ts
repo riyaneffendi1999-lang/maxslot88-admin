@@ -83,14 +83,53 @@ export interface BankAccount {
   created_at: string;
 }
 
+export type BonusTaskProgram = BonusProgram;
+export type BonusTaskStatus = 'pending' | 'complete';
+
+export interface BonusTask {
+  id: string;
+  program: BonusTaskProgram;
+  ticket: string;
+  user_name: string;
+  inject_bonus: number;
+  total_turnover: number;
+  prize: string;
+  status: BonusTaskStatus;
+  created_at: string;
+  completed_at: string | null;
+  edited_at: string | null;
+  edited_by: string | null;
+  periode: string | null;
+}
+
 export interface Database {
   public: {
     Tables: {
-      transactions: { Row: Transaction; Insert: Omit<Transaction, 'id' | 'created_at'>; Update: Partial<Omit<Transaction, 'id' | 'created_at'>> };
-      bonus_entries: { Row: BonusEntry; Insert: Omit<BonusEntry, 'id' | 'created_at'>; Update: Partial<Omit<BonusEntry, 'id' | 'created_at'>> };
-      managed_users: { Row: ManagedUser; Insert: Omit<ManagedUser, 'id' | 'created_at'>; Update: Partial<Omit<ManagedUser, 'id' | 'created_at'>> };
-      bank_accounts: { Row: BankAccount; Insert: Omit<BankAccount, 'id' | 'created_at'>; Update: Partial<Omit<BankAccount, 'id' | 'created_at'>> };
+      transactions: { Row: Transaction; Insert: Omit<Transaction, 'id' | 'created_at'>; Update: Partial<Omit<Transaction, 'id' | 'created_at'>>; Relationships: [] };
+      bonus_entries: { Row: BonusEntry; Insert: Omit<BonusEntry, 'id' | 'created_at'>; Update: Partial<Omit<BonusEntry, 'id' | 'created_at'>>; Relationships: [] };
+      managed_users: { Row: ManagedUser; Insert: Omit<ManagedUser, 'id' | 'created_at'>; Update: Partial<Omit<ManagedUser, 'id' | 'created_at'>>; Relationships: [] };
+      bank_accounts: { Row: BankAccount; Insert: Omit<BankAccount, 'id' | 'created_at'>; Update: Partial<Omit<BankAccount, 'id' | 'created_at'>>; Relationships: [] };
+      bonus_tasks: {
+        Row: BonusTask;
+        Insert: {
+          program: BonusTaskProgram;
+          ticket: string;
+          user_name: string;
+          inject_bonus: number;
+          status: BonusTaskStatus;
+          total_turnover?: number;
+          prize?: string;
+          completed_at?: string | null;
+          edited_at?: string | null;
+          edited_by?: string | null;
+          periode?: string | null;
+        };
+        Update: Partial<Omit<BonusTask, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
     };
+    Views: { [key: string]: { Row: Record<string, unknown>; Relationships: [] } };
+    Functions: { [key: string]: { Args: Record<string, unknown>; Returns: unknown } };
   };
 }
 

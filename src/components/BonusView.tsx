@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, memo } from 'react';
 import { Search, Star, Calendar, TrendingUp, Zap, Plus, Trash2, Check, Loader2, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, CheckCircle2, Circle, Pencil, Users, Gift, Info, Clock, Package } from 'lucide-react';
 import { useBonusTasks } from '../hooks/useBonusTasks';
-import type { BonusTask, BonusTaskProgram } from '../hooks/useBonusTasks';
+import type { BonusTask } from '../hooks/useBonusTasks';
 import { ConfirmDialog } from './modals/ModalBase';
 import type { BonusProgram } from '../types';
 import { formatRupiah } from '../types';
@@ -95,7 +95,6 @@ function PeriodDropdown({ value, onChange }: { value: Period; onChange: (v: Peri
 
 // ─── Dual Table for Lucky Spin ─────────────────────────────────────────────────
 
-const pendingThCls = 'text-left text-xs text-slate-500 dark:text-slate-500 font-medium px-3 py-2.5 uppercase tracking-wider whitespace-nowrap';
 const pendingTdCls = 'px-3 py-2.5';
 const pendingInCls = 'w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors';
 

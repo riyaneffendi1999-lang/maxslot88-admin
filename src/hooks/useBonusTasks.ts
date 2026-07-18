@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import type { Database } from '../types';
 
-export type BonusTaskProgram = 'lucky-spin' | 'kamis-ceria' | 'gebyar-turnover' | 'slot-race';
-export type BonusTaskStatus = 'pending' | 'complete';
+export type BonusTaskProgram = Database['public']['Tables']['bonus_tasks']['Row']['program'];
+export type BonusTaskStatus = Database['public']['Tables']['bonus_tasks']['Row']['status'];
 
-export interface BonusTask {
-  id: string;
-  program: BonusTaskProgram;
-  ticket: string;
-  user_name: string;
-  inject_bonus: number;
-  total_turnover: number;
-  prize: string;
-  status: BonusTaskStatus;
-  created_at: string;
-  completed_at: string | null;
-  edited_at: string | null;
-  edited_by: string | null;
-  periode: string | null;
-}
+export type BonusTask = Database['public']['Tables']['bonus_tasks']['Row'];
 
 export function useBonusTasks(program: BonusTaskProgram) {
   const [data, setData] = useState<BonusTask[]>([]);
@@ -48,8 +35,8 @@ export function useBonusTasks(program: BonusTaskProgram) {
     return () => { supabase.removeChannel(channel); };
   }, [load, program]);
 
-  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null; completed_at?: string | null }): Promise<string | null> => {
-    const { error } = await supabase.from('bonus_tasks').insert(payload);
+  const add = async (payload: Database['public']['Tables']['bonus_tasks']['Insert']): Promise<string | null> => {
+    const { error } = await supabase.from('bonus_tasks').insert(payload as never);
     if (error) {
       console.error('[useBonusTasks] insert failed:', error.message, payload);
       return error.message;
@@ -58,8 +45,8 @@ export function useBonusTasks(program: BonusTaskProgram) {
     return null;
   };
 
-  const update = async (id: string, payload: Partial<Omit<BonusTask, 'id' | 'created_at'>>): Promise<string | null> => {
-    const { error } = await supabase.from('bonus_tasks').update(payload).eq('id', id);
+  const update = async (id: string, payload: Database['public']['Tables']['bonus_tasks']['Update']): Promise<string | null> => {
+    const { error } = await supabase.from('bonus_tasks').update(payload as never).eq('id', id);
     if (error) {
       console.error('[useBonusTasks] update failed:', error.message, id, payload);
       return error.message;
