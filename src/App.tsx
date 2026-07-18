@@ -3,11 +3,33 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import Dashboard from './components/Dashboard';
+import DataTable from './components/DataTable';
+import PulsaDataTable from './components/PulsaDataTable';
 import LoginPage from './components/LoginPage';
-import type { BonusProgram } from './types';
+import { BANK_METHODS, EMONEY_METHODS } from './types';
+import type { TransactionMethod, BonusProgram } from './types';
 import { Loader2 } from 'lucide-react';
 
+// Inline SVG logos (no external dependencies)
+const logoBCA = '/assets/deposit-logos/logo-bca.jpg';
+const logoMandiri = '/assets/deposit-logos/logo-mandiri.jpg';
+const logoBNI = '/assets/deposit-logos/logo-bni.jpg';
+const logoBRI = '/assets/deposit-logos/logo-bri.jpg';
+const logoDANA = '/assets/deposit-logos/logo-dana.jpg';
+const logoOVO = '/assets/deposit-logos/logo-ovo.webp';
+const logoGOPAY = '/assets/deposit-logos/4da0041cb04db5413b19185939b223a7.jpg';
+const logoLINKAJA = '/assets/deposit-logos/logo-linkaja.webp';
+const logoPULSA = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 40'><rect width='140' height='40' rx='20' fill='%23ec4899'/><text x='10' y='28' font-family='Arial Black,Arial' font-weight='900' font-size='18' fill='%23ffffff'>PULSA</text></svg>`;
+
+const methodLogos: Record<string, string> = {
+  'deposit-bank': logoBCA, 'deposit-emoney': logoDANA,
+  bca: logoBCA, mandiri: logoMandiri, bni: logoBNI, bri: logoBRI,
+  dana: logoDANA, ovo: logoOVO, gopay: logoGOPAY, linkaja: logoLINKAJA, pulsa: logoPULSA,
+};
+
 const BonusView = lazy(() => import('./components/BonusView'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
 
 function FallbackLoader() {
   return (
@@ -25,6 +47,11 @@ type ActiveMenu =
   | 'bonus' | 'lucky-spin' | 'kamis-ceria' | 'gebyar-turnover' | 'slot-race'
   | 'settings' | 'manage-admin' | 'role-akses' | 'management-bank';
 
+const methodMap: Record<string, TransactionMethod> = {
+  bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI',
+  dana: 'DANA', ovo: 'OVO', gopay: 'GOPAY', linkaja: 'LINKAJA', pulsa: 'PULSA',
+};
+
 const pageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
   'deposit-bank': 'Deposit Bank', bca: 'Deposit BCA', mandiri: 'Deposit Mandiri', bni: 'Deposit BNI', bri: 'Deposit BRI',
@@ -35,25 +62,25 @@ const pageTitles: Record<string, string> = {
 };
 
 const bonusMenus = new Set<string>(['lucky-spin', 'kamis-ceria', 'gebyar-turnover', 'slot-race']);
+const settingsMenus = new Set<string>(['manage-admin', 'role-akses', 'management-bank']);
 
 function renderContent(active: ActiveMenu) {
-  if (bonusMenus.has(active)) {
-    return (
-      <Suspense fallback={<FallbackLoader />}>
-        <BonusView view={active as BonusProgram} />
-      </Suspense>
-    );
-  }
-  return (
-    <div className="flex items-center justify-center h-64 text-slate-400 dark:text-slate-600">
-      <p className="text-sm">Halaman {pageTitles[active] ?? active}</p>
-    </div>
-  );
+  if (active === 'dashboard') return <Dashboard />;
+  if (active === 'deposit-bank') return <DataTable title="Semua Bank" methods={BANK_METHODS} logo={methodLogos[active]} />;
+  if (active === 'deposit-emoney') return <DataTable title="Semua E-Money" methods={EMONEY_METHODS} logo={methodLogos[active]} />;
+  if (active === 'deposit-pulsa') return <PulsaDataTable title="Deposit Pulsa" />;
+  if (active === 'telkomsel') return <PulsaDataTable title="Deposit Telkomsel" bankFilter="telkomsel" />;
+  if (active === 'xl') return <PulsaDataTable title="Deposit XL" bankFilter="xl" />;
+  const method = methodMap[active];
+  if (method) return <DataTable title={method} methods={[method]} logo={methodLogos[active]} />;
+  if (bonusMenus.has(active)) return <Suspense fallback={<FallbackLoader />}><BonusView view={active as BonusProgram} /></Suspense>;
+  if (settingsMenus.has(active)) return <Suspense fallback={<FallbackLoader />}><SettingsView view={active as 'manage-admin' | 'role-akses' | 'management-bank'} /></Suspense>;
+  return <Dashboard />;
 }
 
 function AdminApp() {
   const { user, loading, signOut, access, role, username } = useAuth();
-  const [activeMenu, setActiveMenu] = useState<ActiveMenu>('lucky-spin');
+  const [activeMenu, setActiveMenu] = useState<ActiveMenu>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (loading) {

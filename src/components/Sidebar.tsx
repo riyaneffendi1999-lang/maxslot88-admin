@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Building2, Wallet, ChevronDown, Gift, Settings,
   Star, Calendar, TrendingUp, Zap, Users, ShieldCheck, CreditCard, Menu, Smartphone,
 } from 'lucide-react';
+import logo from '../assets/logo.png';
 import type { AdminRole } from '../types';
 
 type MenuItem = {
@@ -71,19 +72,34 @@ function hasAccess(id: string, access?: string[]) {
   return access.includes(id);
 }
 
-export default function Sidebar({ activeMenu, onMenuSelect, collapsed, onToggleCollapse, access }: Props) {
+/** Role-based filter for settings sub-menus */
+function canSeeSettingsChild(childId: string, role?: AdminRole): boolean {
+  if (!role || role === 'head' || role === 'supervisor') return true;
+  if (role === 'ast-spv') return childId === 'manage-admin' || childId === 'management-bank';
+  if (role === 'staff') return childId === 'management-bank';
+  return false;
+}
+
+export default function Sidebar({ activeMenu, onMenuSelect, collapsed, onToggleCollapse, access, role }: Props) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     'deposit-bank': true, 'deposit-emoney': true, 'deposit-pulsa': true, bonus: true, settings: true,
   });
 
-  const visibleItems = menuItems.filter((item) => hasAccess(item.id, access));
+  const visibleItems = menuItems.filter((item) => {
+    if (item.id === 'settings' && role === 'staff') {
+      const hasBankAccess = hasAccess('management-bank', access);
+      if (!hasBankAccess) return false;
+    }
+    return hasAccess(item.id, access);
+  });
+
   const toggleGroup = (id: string) => setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   const handleItemClick = (item: MenuItem) => item.children ? toggleGroup(item.id) : onMenuSelect(item.id);
 
   return (
     <aside className={`relative flex flex-col transition-all duration-300 ease-in-out ${collapsed ? 'w-16' : 'w-64'} min-h-screen bg-gradient-to-b from-rose-50 to-pink-100 dark:from-[#0d1b2e] dark:to-[#0d1b2e] border-r border-rose-200/60 dark:border-white/5 shrink-0`}>
       <button onClick={() => onMenuSelect('dashboard')} className="flex items-center justify-center px-4 py-4 border-b border-rose-200/60 dark:border-white/5 cursor-pointer hover:bg-rose-100/70 dark:hover:bg-white/5 transition-colors w-full">
-        <span className={`font-bold text-rose-700 dark:text-white ${collapsed ? 'text-sm' : 'text-lg'}`}>MS88</span>
+        <img src={logo} alt="MaxSlot88" className={`${collapsed ? 'h-7' : 'h-9'} object-contain`} />
       </button>
 
       {collapsed && (
@@ -95,7 +111,11 @@ export default function Sidebar({ activeMenu, onMenuSelect, collapsed, onToggleC
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
         {visibleItems.map((item) => {
           const isGroup = !!item.children;
-          const visibleChildren = isGroup ? item.children!.filter((child) => hasAccess(child.id, access)) : [];
+          let visibleChildren = isGroup ? item.children!.filter((child) => hasAccess(child.id, access)) : [];
+          // Apply role-based filtering for settings children
+          if (item.id === 'settings') {
+            visibleChildren = visibleChildren.filter((child) => canSeeSettingsChild(child.id, role));
+          }
           if (isGroup && visibleChildren.length === 0) return null;
           const isGroupOpen = openGroups[item.id];
           const isActive = activeMenu === item.id;
@@ -135,6 +155,18 @@ export default function Sidebar({ activeMenu, onMenuSelect, collapsed, onToggleC
           );
         })}
       </nav>
+
+      {!collapsed && (
+        <div className="px-4 py-4 border-t border-rose-200/60 dark:border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold shrink-0">AD</div>
+            <div className="min-w-0">
+              <p className="text-rose-900 dark:text-white text-sm font-semibold truncate">Admin User</p>
+              <p className="text-rose-400 dark:text-slate-500 text-xs truncate">admin@panel.com</p>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

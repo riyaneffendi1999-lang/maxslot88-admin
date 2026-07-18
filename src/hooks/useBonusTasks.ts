@@ -1,20 +1,31 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Database } from '../types';
 
-export type BonusTaskProgram = Database['public']['Tables']['bonus_tasks']['Row']['program'];
-export type BonusTaskStatus = Database['public']['Tables']['bonus_tasks']['Row']['status'];
+export type BonusTaskProgram = 'lucky-spin' | 'kamis-ceria' | 'gebyar-turnover' | 'slot-race';
+export type BonusTaskStatus = 'pending' | 'complete';
 
-export type BonusTask = Database['public']['Tables']['bonus_tasks']['Row'];
+export interface BonusTask {
+  id: string;
+  program: BonusTaskProgram;
+  ticket: string;
+  user_name: string;
+  inject_bonus: number;
+  total_turnover: number;
+  prize: string;
+  status: BonusTaskStatus;
+  created_at: string;
+  completed_at: string | null;
+  edited_at: string | null;
+  edited_by: string | null;
+  periode: string | null;
+}
 
 export function useBonusTasks(program: BonusTaskProgram) {
   const [data, setData] = useState<BonusTask[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const pendingMutations = useRef<Set<string>>(new Set());
-  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const load = useCallback(async () => {
+    setLoading(true);
     const { data: rows } = await supabase
       .from('bonus_tasks')
       .select('*')
@@ -29,59 +40,32 @@ export function useBonusTasks(program: BonusTaskProgram) {
 
     const channel = supabase
       .channel(`bonus_tasks_${program}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_tasks', filter: `program=eq.${program}` }, (payload) => {
-        const row = (payload as { new?: { id?: string }; old?: { id?: string } });
-        const id = row.new?.id ?? row.old?.id;
-        if (id && pendingMutations.current.has(id)) {
-          pendingMutations.current.delete(id);
-          if (flushTimer.current) clearTimeout(flushTimer.current);
-          flushTimer.current = setTimeout(() => load(), 400);
-          return;
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_tasks', filter: `program=eq.${program}` }, () => {
         load();
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-      if (flushTimer.current) clearTimeout(flushTimer.current);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [load, program]);
 
-  const add = async (payload: Database['public']['Tables']['bonus_tasks']['Insert']): Promise<string | null> => {
-    const { data: row, error } = await supabase
-      .from('bonus_tasks')
-      .insert(payload as never)
-      .select('*')
-      .maybeSingle();
+  const add = async (payload: Omit<BonusTask, 'id' | 'created_at' | 'completed_at' | 'edited_at' | 'edited_by' | 'periode'> & { periode?: string | null; completed_at?: string | null }): Promise<string | null> => {
+    const { error } = await supabase.from('bonus_tasks').insert(payload);
     if (error) {
       console.error('[useBonusTasks] insert failed:', error.message, payload);
       return error.message;
     }
-    if (row) {
-      pendingMutations.current.add((row as BonusTask).id);
-      setData((prev) => [row as BonusTask, ...prev]);
-    }
+    await load();
     return null;
   };
 
-  const update = async (id: string, payload: Database['public']['Tables']['bonus_tasks']['Update']): Promise<{ error: string | null; row: BonusTask | null }> => {
-    const { data: row, error } = await supabase
-      .from('bonus_tasks')
-      .update(payload as never)
-      .eq('id', id)
-      .select('*')
-      .maybeSingle();
+  const update = async (id: string, payload: Partial<Omit<BonusTask, 'id' | 'created_at'>>): Promise<string | null> => {
+    const { error } = await supabase.from('bonus_tasks').update(payload).eq('id', id);
     if (error) {
       console.error('[useBonusTasks] update failed:', error.message, id, payload);
-      return { error: error.message, row: null };
+      return error.message;
     }
-    const updated = row as BonusTask | null;
-    if (updated) {
-      pendingMutations.current.add(id);
-      setData((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
-    }
-    return { error: null, row: updated };
+    await load();
+    return null;
   };
 
   const remove = async (id: string): Promise<string | null> => {
@@ -90,8 +74,7 @@ export function useBonusTasks(program: BonusTaskProgram) {
       console.error('[useBonusTasks] delete failed:', error.message, id);
       return error.message;
     }
-    pendingMutations.current.add(id);
-    setData((prev) => prev.filter((d) => d.id !== id));
+    await load();
     return null;
   };
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import type { AdminRole } from '../types';
+import type { AdminRole } from './useAdmins';
 import { supabase } from '../lib/supabase';
 
 interface AuthContextValue {
@@ -22,7 +22,7 @@ const BASE = SUPABASE_URL + '/functions/v1';
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const SESSION_TOKEN_KEY = 'admin_session_token';
-const SESSION_CHECK_INTERVAL = 30_000;
+const SESSION_CHECK_INTERVAL = 30_000; // 30 seconds
 
 function toEmail(identifier: string): string {
   const v = identifier.trim().toLowerCase();
@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Periodic session validation
   useEffect(() => {
     if (!user) {
       if (intervalRef.current) {
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabase.auth.signOut();
         }
       } catch {
-        // network error
+        // network error — skip this check
       }
     };
 
@@ -118,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (identifier: string, password: string): Promise<string | null> => {
     try {
       const email = toEmail(identifier);
+
       const res = await fetch(`${BASE}/auth-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,12 +128,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const contentType = res.headers.get('content-type') ?? '';
       if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('[Auth] Non-JSON response:', res.status, text);
         return `Server error (${res.status}). Coba lagi dalam beberapa detik.`;
       }
 
       const json = await res.json();
-      if (!res.ok || json.error) return json.error ?? 'Login gagal';
 
+      if (!res.ok || json.error) {
+        return json.error ?? 'Login gagal';
+      }
+
+      // Store session token for single-session enforcement
       if (json.session_token) {
         localStorage.setItem(SESSION_TOKEN_KEY, json.session_token);
       }
@@ -168,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch {
-      // pass
+      // Session may already be invalid (e.g. after password reset) — clear local state anyway
     }
     setUser(null);
     setSession(null);

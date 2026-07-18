@@ -6,6 +6,7 @@ export type UserStatus = 'active' | 'inactive';
 export type BankType = 'Bank Transfer' | 'E-Money' | 'Pulsa';
 export type BankStatus = 'active' | 'inactive';
 
+// ─── Admin Role System ───────────────────────────────────────────────────────
 export type AdminRole = 'head' | 'supervisor' | 'ast-spv' | 'staff';
 
 export const ADMIN_ROLES: AdminRole[] = ['head', 'supervisor', 'ast-spv', 'staff'];
@@ -24,6 +25,7 @@ export const ADMIN_ROLE_STYLES: Record<AdminRole, string> = {
   staff: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
 };
 
+/** Hierarchy rank: higher number = more authority */
 export const ROLE_RANK: Record<AdminRole, number> = {
   head: 4,
   supervisor: 3,
@@ -81,55 +83,14 @@ export interface BankAccount {
   created_at: string;
 }
 
-export type BonusTaskProgram = BonusProgram;
-export type BonusTaskStatus = 'pending' | 'complete';
-
-export interface BonusTask {
-  id: string;
-  program: BonusTaskProgram;
-  ticket: string;
-  user_name: string;
-  inject_bonus: number;
-  total_turnover: number;
-  prize: string;
-  status: BonusTaskStatus;
-  created_at: string;
-  completed_at: string | null;
-  completed_by: string | null;
-  edited_at: string | null;
-  edited_by: string | null;
-  periode: string | null;
-}
-
 export interface Database {
   public: {
     Tables: {
-      transactions: { Row: Transaction; Insert: Omit<Transaction, 'id' | 'created_at'>; Update: Partial<Omit<Transaction, 'id' | 'created_at'>>; Relationships: [] };
-      bonus_entries: { Row: BonusEntry; Insert: Omit<BonusEntry, 'id' | 'created_at'>; Update: Partial<Omit<BonusEntry, 'id' | 'created_at'>>; Relationships: [] };
-      managed_users: { Row: ManagedUser; Insert: Omit<ManagedUser, 'id' | 'created_at'>; Update: Partial<Omit<ManagedUser, 'id' | 'created_at'>>; Relationships: [] };
-      bank_accounts: { Row: BankAccount; Insert: Omit<BankAccount, 'id' | 'created_at'>; Update: Partial<Omit<BankAccount, 'id' | 'created_at'>>; Relationships: [] };
-      bonus_tasks: {
-        Row: BonusTask;
-        Insert: {
-          program: BonusTaskProgram;
-          ticket: string;
-          user_name: string;
-          inject_bonus: number;
-          status: BonusTaskStatus;
-          total_turnover?: number;
-          prize?: string;
-          completed_at?: string | null;
-          completed_by?: string | null;
-          edited_at?: string | null;
-          edited_by?: string | null;
-          periode?: string | null;
-        };
-        Update: Partial<Omit<BonusTask, 'id' | 'created_at'>>;
-        Relationships: [];
-      };
+      transactions: { Row: Transaction; Insert: Omit<Transaction, 'id' | 'created_at'>; Update: Partial<Omit<Transaction, 'id' | 'created_at'>> };
+      bonus_entries: { Row: BonusEntry; Insert: Omit<BonusEntry, 'id' | 'created_at'>; Update: Partial<Omit<BonusEntry, 'id' | 'created_at'>> };
+      managed_users: { Row: ManagedUser; Insert: Omit<ManagedUser, 'id' | 'created_at'>; Update: Partial<Omit<ManagedUser, 'id' | 'created_at'>> };
+      bank_accounts: { Row: BankAccount; Insert: Omit<BankAccount, 'id' | 'created_at'>; Update: Partial<Omit<BankAccount, 'id' | 'created_at'>> };
     };
-    Views: { [key: string]: { Row: Record<string, unknown>; Relationships: [] } };
-    Functions: { [key: string]: { Args: Record<string, unknown>; Returns: unknown } };
   };
 }
 
