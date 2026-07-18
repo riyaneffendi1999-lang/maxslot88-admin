@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, Calendar, Star, Zap, Gift } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, Line, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useTransactions } from '../hooks/useTransactions';
@@ -81,7 +81,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <p className="text-slate-400 dark:text-slate-400 mb-1">{label}</p>
       {payload.map((p: { name: string; value: number; color: string }) => (
         <p key={p.name} style={{ color: p.color }} className="font-semibold">
-          {p.name}: {p.name === 'Total' || p.name === 'Deposit' || p.name === 'Total Bonus' ? formatRupiah(p.value) : p.value}
+          {p.name}: {p.name === 'Total' || p.name === 'Deposit' || p.name === 'Total Bonus' || p.name === 'Total Deposit' ? formatRupiah(p.value) : p.value}
         </p>
       ))}
     </div>
@@ -282,21 +282,24 @@ export default function Dashboard() {
       {/* Area chart */}
       <div className="bg-white dark:bg-[#0d1b2e] border border-slate-200 dark:border-white/5 rounded-xl p-6">
         <h2 className="text-slate-800 dark:text-white font-semibold mb-1">Transaksi 7 Hari Terakhir</h2>
-        <p className="text-slate-400 dark:text-slate-500 text-xs mb-5">Jumlah transaksi per hari</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={areaData}>
+        <p className="text-slate-400 dark:text-slate-500 text-xs mb-5">Jumlah transaksi & total deposit per hari</p>
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={areaData} style={{ background: 'transparent' }}>
             <defs>
               <linearGradient id="txGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" className="dark:opacity-100" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
             <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip />} wrapperStyle={{ background: 'transparent', border: 'none', outline: 'none' }} />
-            <Area type="monotone" dataKey="Transaksi" stroke="#3b82f6" strokeWidth={2} fill="url(#txGrad)" dot={{ fill: '#3b82f6', r: 3 }} />
-          </AreaChart>
+            <YAxis yAxisId="left" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fill: '#10b981', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v === 0 ? 'Rp 0' : `Rp ${(v / 1000000).toFixed(1)}jt`} width={70} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+            <Area yAxisId="left" type="monotone" dataKey="Transaksi" stroke="#3b82f6" strokeWidth={2} fill="url(#txGrad)" dot={{ fill: '#3b82f6', r: 3 }} />
+            <Line yAxisId="right" type="monotone" dataKey="Total" name="Total Deposit" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} activeDot={{ r: 5 }} />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
@@ -309,12 +312,12 @@ export default function Dashboard() {
             <p className="text-slate-400 dark:text-slate-600 text-sm text-center py-10">Belum ada data</p>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
+              <PieChart style={{ background: 'transparent' }}>
                 <Pie data={methodData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} innerRadius={40} paddingAngle={2}>
                   {methodData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} wrapperStyle={{ background: 'transparent', border: 'none', outline: 'none' }} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#94a3b8', background: 'transparent' }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -327,11 +330,11 @@ export default function Dashboard() {
             <p className="text-slate-400 dark:text-slate-600 text-sm text-center py-10">Belum ada data</p>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={barData} barSize={20}>
+              <BarChart data={barData} barSize={20} style={{ background: 'transparent' }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                 <XAxis dataKey="method" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-                <Tooltip content={<CustomTooltip />} wrapperStyle={{ background: 'transparent', border: 'none', outline: 'none' }} />
+                <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="total" name="Total" radius={[4, 4, 0, 0]}>
                   {barData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
@@ -413,13 +416,13 @@ export default function Dashboard() {
               {/* Bar chart */}
               <div className="flex-1 min-h-[160px]">
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={bonusBarData} barSize={18} barGap={4}>
+                  <BarChart data={bonusBarData} barSize={18} barGap={4} style={{ background: 'transparent' }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" />
                     <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis yAxisId="left" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis yAxisId="right" orientation="right" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-                    <Tooltip content={<CustomTooltip />} wrapperStyle={{ background: 'transparent', border: 'none', outline: 'none' }} />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#94a3b8', background: 'transparent' }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
                     <Bar yAxisId="left" dataKey="Member" radius={[4, 4, 0, 0]} fill="#3b82f6" opacity={0.85}>
                       {bonusBarData.map((entry) => (
                         <Cell key={entry.program} fill={BONUS_COLORS[entry.program]} />

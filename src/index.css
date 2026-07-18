@@ -26,17 +26,4 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-slate-400 dark:bg-white/20;
   }
-  /* Fix dropdown options visibility in dark mode */
-  select option {
-    @apply bg-white text-slate-800;
-  }
-  .dark select option {
-    @apply bg-[#0d1b2e] text-slate-100;
-  }
-  select optgroup {
-    @apply bg-white text-slate-500 font-semibold;
-  }
-  .dark select optgroup {
-    @apply bg-[#0d1b2e] text-slate-400;
-  }
 }
