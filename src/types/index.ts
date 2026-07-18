@@ -97,6 +97,7 @@ export interface BonusTask {
   status: BonusTaskStatus;
   created_at: string;
   completed_at: string | null;
+  completed_by: string | null;
   edited_at: string | null;
   edited_by: string | null;
   periode: string | null;
@@ -120,6 +121,7 @@ export interface Database {
           total_turnover?: number;
           prize?: string;
           completed_at?: string | null;
+          completed_by?: string | null;
           edited_at?: string | null;
           edited_by?: string | null;
           periode?: string | null;

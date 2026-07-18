@@ -98,18 +98,35 @@ function PeriodDropdown({ value, onChange }: { value: Period; onChange: (v: Peri
 const pendingTdCls = 'px-3 py-2.5';
 const pendingInCls = 'w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors';
 
-interface PendingRowProps {
-  task: BonusTask;
-  onCommit: (id: string, field: 'user_name' | 'inject_bonus', value: string) => void;
-  onComplete: (task: BonusTask) => void;
-  onRemove: (id: string) => void;
+// Robust rupiah parser: accepts 5000, 5.000, 5,000, Rp5000, "Rp 5.000", etc.
+function parseRupiahInput(raw: string): number {
+  if (!raw) return 0;
+  const cleaned = raw.replace(/rp/i, '').replace(/\s/g, '');
+  if (!cleaned) return 0;
+  const hasCommaDecimal = cleaned.indexOf(',') > cleaned.indexOf('.');
+  let normalized = cleaned;
+  if (hasCommaDecimal) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else {
+    normalized = cleaned.replace(/\./g, '').replace(/,/g, '');
+  }
+  const num = parseFloat(normalized);
+  return isNaN(num) ? 0 : Math.floor(num);
 }
 
-const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemove }: PendingRowProps) {
+interface PendingRowProps {
+  task: BonusTask;
+  registerInput: (id: string, el: HTMLInputElement | null) => void;
+  onCommit: (id: string, field: 'user_name' | 'inject_bonus', value: string) => void;
+  onComplete: (task: BonusTask, inputEl: HTMLInputElement) => void;
+  onRemove: (id: string) => void;
+  locked: boolean;
+}
+
+const PendingRow = memo(function PendingRow({ task, registerInput, onCommit, onComplete, onRemove, locked }: PendingRowProps) {
   const [userName, setUserName] = useState(task.user_name);
   const [bonusText, setBonusText] = useState(task.inject_bonus ? formatRupiah(task.inject_bonus).replace('Rp ', '') : '');
 
-  // Sync local state if the task changes externally (e.g. realtime update from another admin)
   useEffect(() => {
     setUserName(task.user_name);
     setBonusText(task.inject_bonus ? formatRupiah(task.inject_bonus).replace('Rp ', '') : '');
@@ -118,16 +135,21 @@ const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemo
   const hasBonus = task.inject_bonus > 0;
   const hasUsername = userName.trim() !== '';
 
+  const bonusInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    registerInput(task.id, bonusInputRef.current);
+    return () => registerInput(task.id, null);
+  }, [task.id, registerInput]);
+
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+    <tr className={`hover:bg-slate-50 dark:hover:bg-white/[0.02] ${locked ? 'opacity-60' : ''}`}>
       <td className={`${pendingTdCls} min-w-[120px]`}>
         <input
           className={pendingInCls}
           value={userName}
+          disabled={locked}
           onChange={(e) => setUserName(e.target.value)}
-          onBlur={() => {
-            if (userName !== task.user_name) onCommit(task.id, 'user_name', userName);
-          }}
+          onBlur={() => { if (userName !== task.user_name) onCommit(task.id, 'user_name', userName); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
@@ -139,20 +161,18 @@ const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemo
       </td>
       <td className={`${pendingTdCls} min-w-[120px]`}>
         <input
+          ref={bonusInputRef}
           className={pendingInCls}
           type="text"
           inputMode="numeric"
           value={bonusText}
+          disabled={locked}
           onChange={(e) => setBonusText(e.target.value)}
-          onBlur={() => {
-            if (bonusText !== (task.inject_bonus ? formatRupiah(task.inject_bonus).replace('Rp ', '') : '')) {
-              onCommit(task.id, 'inject_bonus', bonusText);
-            }
-          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const parsed = parseFloat(bonusText.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-              onComplete({ ...task, user_name: userName, inject_bonus: parsed });
+            if (e.key === 'Enter' && !locked) {
+              const el = e.target as HTMLInputElement;
+              const amount = parseRupiahInput(bonusText);
+              if (amount > 0) onComplete({ ...task, user_name: userName.trim(), inject_bonus: amount }, el);
             }
           }}
           placeholder="Nominal, Enter untuk simpan"
@@ -165,7 +185,7 @@ const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemo
         </span>
       </td>
       <td className={pendingTdCls}>
-        <button onClick={() => onRemove(task.id)} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+        <button onClick={() => onRemove(task.id)} disabled={locked} className="p-1 rounded text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 disabled:opacity-40 transition-colors">
           <Trash2 size={12} />
         </button>
       </td>
@@ -176,17 +196,74 @@ const PendingRow = memo(function PendingRow({ task, onCommit, onComplete, onRemo
   && prev.task.inject_bonus === next.task.inject_bonus
   && prev.task.status === next.task.status
   && prev.task.ticket === next.task.ticket
+  && prev.locked === next.locked
 );
 
 function LuckySpinView() {
   const { data, loading, add, update, remove } = useBonusTasks('lucky-spin');
-  const { user } = useAuth();
+  const { user, username } = useAuth();
+  const adminName = username || user?.email || 'admin';
 
   // Left table state
   const [ticketInput, setTicketInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [pendingPage, setPendingPage] = useState(1);
   const PENDING_PAGE_SIZE = 20;
+
+  // Optimistic layer: rows that have been committed to Supabase but whose
+  // realtime echo hasn't arrived yet. Keyed by task id -> the optimistic patch.
+  const [optimisticPatches, setOptimisticPatches] = useState<Record<string, Partial<BonusTask>>>({});
+  // Rows currently animating fade-out (kept mounted for the 250ms animation).
+  const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
+  // Lock set: task ids whose save is in-flight. Prevents double-submit on
+  // repeated ENTER.
+  const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+
+  // Registry of bonus-input elements by task id, for auto-focus-next-row.
+  const inputRegistry = useRef<Map<string, HTMLInputElement>>(new Map());
+  const registerInput = useCallback((id: string, el: HTMLInputElement | null) => {
+    if (el) inputRegistry.current.set(id, el);
+    else inputRegistry.current.delete(id);
+  }, []);
+
+  // Toast state
+  const [toast, setToast] = useState<{ id: number; kind: 'success' | 'error'; msg: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((kind: 'success' | 'error', msg: string) => {
+    setToast({ id: Date.now(), kind, msg });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), kind === 'success' ? 2000 : 2500);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  // Merge optimistic patches into the raw data from the hook.
+  const merged = useMemo(() => data.map((d) => {
+    const p = optimisticPatches[d.id];
+    return p ? { ...d, ...p } : d;
+  }), [data, optimisticPatches]);
+
+  const pending = useMemo(() => merged.filter((d) => d.status === 'pending'), [merged]);
+  const pendingIds = useMemo(() => pending.map((p) => p.id), [pending]);
+
+  // Drop optimistic patches once the canonical row from Supabase catches up
+  // (realtime echo). The patch's terminal status matching `data` means the
+  // server-confirmed row is now rendered and the overlay is no longer needed.
+  useEffect(() => {
+    if (Object.keys(optimisticPatches).length === 0) return;
+    setOptimisticPatches((m) => {
+      let changed = false;
+      const n = { ...m };
+      for (const id of Object.keys(n)) {
+        const row = data.find((d) => d.id === id);
+        const patched = n[id];
+        if (row && patched && row.status === patched.status) {
+          delete n[id];
+          changed = true;
+        }
+      }
+      return changed ? n : m;
+    });
+  }, [data, optimisticPatches]);
 
   // Right table state
   const [search, setSearch] = useState('');
@@ -198,10 +275,6 @@ function LuckySpinView() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [page, setPage] = useState(1);
 
-  // Pending tickets from DB (visible to all admins via realtime)
-  const pending = data.filter((d) => d.status === 'pending');
-
-  // Auto-split pasted long ticket string into 10-char chunks
   const handleTicketChange = (raw: string) => {
     const cleaned = raw.replace(/\s+/g, '');
     if (cleaned.length > 10) {
@@ -226,21 +299,99 @@ function LuckySpinView() {
   }, [ticketInput, add]);
 
   const updatePendingRow = (id: string, field: 'user_name' | 'inject_bonus', value: string) =>
-    update(id, { [field]: field === 'inject_bonus' ? (parseFloat(value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0) : value });
+    update(id, { [field]: field === 'inject_bonus' ? parseRupiahInput(value) : value });
 
   const removePendingRow = (id: string) => remove(id);
 
-  // When Enter is pressed on inject_bonus field: save username + bonus + mark complete in one atomic update
-  const handleBonusEnter = async (task: BonusTask) => {
-    if (!task.user_name.trim()) return;
-    const amount = task.inject_bonus > 0 ? task.inject_bonus : 0;
-    const status: BonusTask['status'] = amount > 0 ? 'complete' : 'pending';
-    await update(task.id, {
+  // Find the bonus input for the next pending row (by current render order).
+  const focusNextPending = useCallback((currentId: string) => {
+    const idx = pendingIds.indexOf(currentId);
+    if (idx === -1 || idx + 1 >= pendingIds.length) return;
+    const nextId = pendingIds[idx + 1];
+    const el = inputRegistry.current.get(nextId);
+    if (el) {
+      requestAnimationFrame(() => {
+        el.focus();
+        el.select();
+      });
+    }
+  }, [pendingIds]);
+
+  // Core ENTER workflow: validate -> optimistic update + fade -> persist.
+  const handleBonusEnter = async (task: BonusTask, inputEl: HTMLInputElement) => {
+    // Lock guard: ignore repeated ENTER while a save for this id is in-flight.
+    if (lockedIds.has(task.id)) return;
+
+    // Validation: must be a number > 0.
+    const amount = task.inject_bonus;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      showToast('error', 'Nominal harus berupa angka lebih besar dari 0');
+      inputEl.focus();
+      return;
+    }
+    if (!task.user_name.trim()) {
+      showToast('error', 'Username tidak boleh kosong');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const patch: Partial<BonusTask> = {
       user_name: task.user_name.trim(),
       inject_bonus: amount,
-      status,
-      completed_at: status === 'complete' ? new Date().toISOString() : null,
+      status: 'complete',
+      completed_at: nowIso,
+      completed_by: adminName,
+    };
+
+    // 1. Lock this row's input.
+    setLockedIds((s) => new Set(s).add(task.id));
+    // 2. Optimistically apply the patch (moves row out of `pending`).
+    setOptimisticPatches((m) => ({ ...m, [task.id]: patch }));
+    // 3. Start fade-out animation on the row (kept mounted for 250ms).
+    setFadingIds((s) => new Set(s).add(task.id));
+
+    // 4. Persist to Supabase.
+    const err = await update(task.id, {
+      user_name: patch.user_name!,
+      inject_bonus: amount,
+      status: 'complete',
+      completed_at: nowIso,
+      completed_by: adminName,
     });
+
+    // 5a. Success — remove the fading row after the 250ms animation, unlock,
+    // show toast, and focus the next pending row's bonus input. The optimistic
+    // patch is intentionally KEPT until the realtime echo arrives with the
+    // canonical `complete` row; a cleanup effect drops it once `data` catches
+    // up. Clearing it eagerly here would revert the row to the stale local
+    // cache (still `pending`) and cause a flicker back into the left table.
+    if (!err) {
+      setTimeout(() => {
+        setFadingIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
+      }, 250);
+      setLockedIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
+      showToast('success', 'Bonus berhasil diinject');
+      focusNextPending(task.id);
+      return;
+    }
+
+    // 5b. Failure — rollback: restore pending status, clear patch, unlock,
+    // show error toast, keep the row in the left table.
+    setFadingIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
+    setOptimisticPatches((m) => {
+      const n = { ...m };
+      // Reset to pending so the row is visible again in the left table.
+      n[task.id] = { status: 'pending', inject_bonus: 0, completed_at: null, completed_by: null };
+      // Clear the rollback marker after a tick so the canonical DB value
+      // (still pending) shows through once realtime arrives.
+      setTimeout(() => {
+        setOptimisticPatches((m2) => { const n2 = { ...m2 }; delete n2[task.id]; return n2; });
+      }, 0);
+      return n;
+    });
+    setLockedIds((s) => { const n = new Set(s); n.delete(task.id); return n; });
+    showToast('error', 'Gagal menyimpan data, silakan coba kembali');
+    requestAnimationFrame(() => inputEl.focus());
   };
 
   const startEdit = (t: BonusTask) => {
@@ -250,14 +401,14 @@ function LuckySpinView() {
 
   const saveEdit = async (t: BonusTask) => {
     setEditSaving(true);
-    const amount = parseFloat(editValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+    const amount = parseRupiahInput(editValue);
     const nextStatus: BonusTask['status'] = amount > 0 ? 'complete' : 'pending';
     await update(t.id, {
       inject_bonus: amount,
       status: nextStatus,
       completed_at: nextStatus === 'complete' ? (t.completed_at ?? new Date().toISOString()) : null,
       edited_at: new Date().toISOString(),
-      edited_by: user?.email ?? 'admin',
+      edited_by: adminName,
     });
     setEditSaving(false);
     setEditingId(null);
@@ -273,12 +424,12 @@ function LuckySpinView() {
 
   const { from, to } = useMemo(() => getPeriodRange(period), [period]);
   const completed = useMemo(() =>
-    data.filter((d) => {
+    merged.filter((d) => {
       const dt = new Date(d.completed_at ?? d.created_at);
       return d.status === 'complete' && dt >= from && dt <= to &&
         (d.user_name.toLowerCase().includes(search.toLowerCase()) || d.ticket.toLowerCase().includes(search.toLowerCase()));
     }),
-    [data, from, to, search]
+    [merged, from, to, search]
   );
 
   const totalPages = Math.max(1, Math.ceil(completed.length / BONUS_PAGE_SIZE));
@@ -287,6 +438,23 @@ function LuckySpinView() {
   const totalMemberClaim = completed.length;
   const totalClaimBonus = completed.reduce((sum, d) => sum + (d.inject_bonus || 0), 0);
   useEffect(() => { setPage(1); }, [search, period]);
+
+  // Track which completed ids are freshly arrived (for fade-in animation).
+  const prevCompletedIds = useRef<Set<string>>(new Set());
+  const [fadeInIds, setFadeInIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const currentIds = new Set(completed.map((c) => c.id));
+    const newOnes = new Set<string>();
+    currentIds.forEach((id) => { if (!prevCompletedIds.current.has(id)) newOnes.add(id); });
+    prevCompletedIds.current = currentIds;
+    if (newOnes.size > 0) {
+      setFadeInIds(newOnes);
+      const t = setTimeout(() => setFadeInIds(new Set()), 250);
+      return () => clearTimeout(t);
+    } else {
+      setFadeInIds(new Set());
+    }
+  }, [completed]);
 
   const thCls = 'text-left text-xs text-slate-500 dark:text-slate-500 font-medium px-3 py-2.5 uppercase tracking-wider whitespace-nowrap';
   const tdCls = 'px-3 py-2.5';
@@ -328,15 +496,38 @@ function LuckySpinView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-              {pending.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE).map((r) => (
-                <PendingRow
-                  key={r.id}
-                  task={r}
-                  onCommit={updatePendingRow}
-                  onComplete={handleBonusEnter}
-                  onRemove={removePendingRow}
-                />
-              ))}
+              {pending.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE).map((r) => {
+                const isFading = fadingIds.has(r.id);
+                const isLocked = lockedIds.has(r.id);
+                if (isFading) {
+                  // Render a detached, animated copy so the row visually slides
+                  // out without affecting table layout mid-animation.
+                  return (
+                    <tr key={r.id} className="ls-row-fade-out">
+                      <td className={pendingTdCls}><span className="text-xs text-slate-800 dark:text-white">{r.user_name}</span></td>
+                      <td className={pendingTdCls}><span className="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{r.ticket || '—'}</span></td>
+                      <td className={pendingTdCls}><span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatRupiah(r.inject_bonus)}</span></td>
+                      <td className={pendingTdCls}>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                          <CheckCircle2 size={11} />Complete
+                        </span>
+                      </td>
+                      <td className={pendingTdCls}><Loader2 size={12} className="animate-spin text-blue-500 dark:text-blue-400" /></td>
+                    </tr>
+                  );
+                }
+                return (
+                  <PendingRow
+                    key={r.id}
+                    task={r}
+                    registerInput={registerInput}
+                    onCommit={updatePendingRow}
+                    onComplete={handleBonusEnter}
+                    onRemove={removePendingRow}
+                    locked={isLocked}
+                  />
+                );
+              })}
               {pending.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-400 dark:text-slate-600 text-xs">Masukkan tiket di atas lalu tekan Enter untuk menambah baris</td></tr>
               )}
@@ -412,8 +603,9 @@ function LuckySpinView() {
                 {paginated.map((t) => {
                   const dt = new Date(t.completed_at ?? t.created_at);
                   const isEditing = editingId === t.id;
+                  const isFadeIn = fadeInIds.has(t.id);
                   return (
-                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                    <tr key={t.id} className={`hover:bg-slate-50 dark:hover:bg-white/[0.02] ${isFadeIn ? 'ls-row-fade-in' : ''}`}>
                       <td className={tdCls}><span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">{dt.toLocaleDateString('id-ID')}</span></td>
                       <td className={tdCls}><span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">{dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span></td>
                       <td className={tdCls}><span className="text-sm text-slate-800 dark:text-white font-medium whitespace-nowrap">{t.user_name}</span></td>
@@ -466,6 +658,21 @@ function LuckySpinView() {
           <ConfirmDialog message={`Hapus data bonus "${deleting.user_name}"?`} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleting(null)} />
         )}
       </div>
+
+      {/* ── TOAST ─────────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div
+          key={toast.id}
+          className={`ls-toast fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-lg shadow-black/10 border text-sm font-medium ${
+            toast.kind === 'success'
+              ? 'bg-white dark:bg-[#0d1b2e] border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+              : 'bg-white dark:bg-[#0d1b2e] border-red-500/30 text-red-700 dark:text-red-300'
+          }`}
+        >
+          {toast.kind === 'success' ? <CheckCircle2 size={16} className="text-emerald-500 dark:text-emerald-400" /> : <Info size={16} className="text-red-500 dark:text-red-400" />}
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }
