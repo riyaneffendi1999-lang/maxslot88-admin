@@ -132,12 +132,8 @@ const PendingRow = memo(function PendingRow({ task, registerInput, onCommit, onC
     setBonusText(task.inject_bonus ? formatRupiah(task.inject_bonus).replace('Rp ', '') : '');
   }, [task.user_name, task.inject_bonus]);
 
-  // Status badge reflects LOCAL input state (not DB), so the operator sees
-  // "Complete" the moment both fields are filled — before pressing ENTER.
-  const localAmount = parseRupiahInput(bonusText);
-  const hasBonus = localAmount > 0;
+  const hasBonus = task.inject_bonus > 0;
   const hasUsername = userName.trim() !== '';
-  const isReady = hasBonus && hasUsername;
 
   const bonusInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -179,13 +175,13 @@ const PendingRow = memo(function PendingRow({ task, registerInput, onCommit, onC
               if (amount > 0) onComplete({ ...task, user_name: userName.trim(), inject_bonus: amount }, el);
             }
           }}
-          placeholder="Isi nominal, Enter untuk simpan"
+          placeholder="Nominal, Enter untuk simpan"
         />
       </td>
       <td className={pendingTdCls}>
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-colors ${isReady ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : hasUsername || hasBonus ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20'}`}>
-          {isReady ? <CheckCircle2 size={11} /> : hasUsername || hasBonus ? <Clock size={11} /> : <Circle size={11} />}
-          {isReady ? 'Complete' : hasUsername || hasBonus ? 'Pending' : 'Belum Digunakan'}
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border ${hasBonus ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : hasUsername ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20'}`}>
+          {hasBonus ? <CheckCircle2 size={11} /> : hasUsername ? <Clock size={11} /> : <Circle size={11} />}
+          {hasBonus ? 'Complete' : hasUsername ? 'Pending' : 'Belum Digunakan'}
         </span>
       </td>
       <td className={pendingTdCls}>
